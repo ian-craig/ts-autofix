@@ -1,2 +1,3 @@
-# ts-autofix
-Automatically fix TS Errors when codefixes are available
+# TS AutoFix
+
+Automatically fix TS Errors when codefixes are available.
