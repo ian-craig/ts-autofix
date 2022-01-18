@@ -2,13 +2,32 @@ import chalk from "chalk";
 import type * as ts from "typescript";
 
 /**
+ * Load the caller's version of TypeScript, printing an error if none is found.
+ */
+let tsInstance: typeof ts;
+function getTypeScript(): typeof ts {
+  if (tsInstance) {
+    return tsInstance;
+  }
+  if (!require.resolve("typescript")) {
+    console.log(
+      chalk.red(
+        "Failed to resolve 'typescript' peer dependency. If you are running from npx, run this command inside your package directory. You can also install typescript globally with `npm install -g typescript`."
+      )
+    );
+    process.exit(1);
+  }
+  return require("typescript");
+}
+
+/**
  * Set up necessary TS dependencies for generating diagnostics and finding fixes.
  */
 export function createTsProject(
   tsconfigPath: string,
   compilerOptionsOverrides: ts.CompilerOptions = {}
 ) {
-  const typescript = require("typescript");
+  const typescript = getTypeScript();
 
   const configHost: ts.ParseConfigFileHost = {
     fileExists: typescript.sys.fileExists,
@@ -48,7 +67,10 @@ export function createTsProject(
   };
   const program = typescript.createProgram(programOptions);
 
-  const formatContext = typescript.formatting.getFormatContext({}, host);
+  const formatContext = (typescript as any).formatting.getFormatContext(
+    {},
+    host
+  );
 
   return { program, host, formatContext };
 }
@@ -60,7 +82,7 @@ export function createTsProject(
 export function getDiagnosticsByFile(
   program: ts.Program
 ): Map<string, ts.Diagnostic[]> {
-  const typescript = require("typescript");
+  const typescript = getTypeScript();
   console.log("Running TypeScript compiler to get diagnostics");
   let diagnostics = typescript.getPreEmitDiagnostics(program);
 
@@ -85,7 +107,7 @@ export function getCodeFixes(
   host: ts.CompilerHost,
   formatContext: any
 ) {
-  const typescript = require("typescript");
+  const typescript = getTypeScript();
   const cancellationToken: ts.CancellationToken = {
     isCancellationRequested: () => false,
     throwIfCancellationRequested: () => {},
@@ -94,7 +116,7 @@ export function getCodeFixes(
   // Directly call into ts.codefix which is what the language service uses.
   // Calling this directly is much faster as the language service reloads the whole
   // project first, but we know it hasn't changed.
-  const fixActions = typescript.codefix.getFixes({
+  const fixActions = (typescript as any).codefix.getFixes({
     errorCode: diag.code,
     sourceFile: sourceFile,
     span: typescript.createTextSpanFromBounds(
@@ -120,7 +142,7 @@ export function logDiagAction(
   host: ts.CompilerHost,
   indent: string = "  "
 ) {
-  const typescript = require("typescript");
+  const typescript = getTypeScript();
   console.log(
     `${indent}${action} ${chalk.gray(
       typescript.formatDiagnostic(diag, host).trim()
