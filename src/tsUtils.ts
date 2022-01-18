@@ -2,7 +2,8 @@ import chalk from "chalk";
 import type * as ts from "typescript";
 
 /**
- * Load the caller's version of TypeScript, printing an error if none is found.
+ * Try to use the caller's version of TypeScript if possible, otherwise fall back to
+ * the version ts-autofix depends on.
  */
 let tsInstance: typeof ts;
 export function getTypeScript(): typeof ts {
@@ -10,14 +11,15 @@ export function getTypeScript(): typeof ts {
     return tsInstance;
   }
   try {
+    const tsPath = require.resolve("typescript", {
+      paths: [process.cwd()],
+    });
+    tsInstance = require(tsPath);
+  } catch (e) {
     tsInstance = require("typescript");
-  } catch {
     console.log(
-      chalk.red(
-        "Failed to resolve 'typescript' peer dependency.\nIf you are running from npx, run this command inside your package directory. Alternatively, you can also install typescript globally with `npm install -g typescript`."
-      )
+      `No local version of TypeScript found. Falling back to bundled version (${tsInstance.version}).`
     );
-    process.exit(1);
   }
   return tsInstance;
 }
