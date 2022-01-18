@@ -5,7 +5,9 @@
     "outDir": "lib", 
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,       
+    "strict": true,
+    "declaration": true,
+    "removeComments": false
   },
   "include": [
     "src/**/*"

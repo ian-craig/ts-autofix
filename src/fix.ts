@@ -1,12 +1,38 @@
 import * as fs from "fs";
-import * as ts from "typescript";
-import { createTsProject, getDiagnosticsByFile } from "./utils";
+import type * as ts from "typescript";
+import chalk from "chalk";
+import {
+  createTsProject,
+  getCodeFixes,
+  getDiagnosticsByFile,
+  logDiagAction,
+} from "./tsUtils";
 
 export type TsAutoFixOptions = {
+  /**
+   * Path to the tsconfig.json for this project. Defaults to `./tsconfig.json`
+   */
   tsconfigPath: string;
+
+  /**
+   * Optional overrides for the compilerOptions section of tsconfig.json
+   */
   compilerOptionsOverrides?: ts.CompilerOptions;
+
+  /**
+   * Optionally filter which diagnostics/errors are considered for fixes.
+   */
   diagnosticsFilter?: (diagnostic: ts.Diagnostic) => boolean;
+
+  /**
+   * Optionally filter which codefixes are applied.
+   */
   codeFixFilter?: (codeFixAction: ts.CodeFixAction) => boolean;
+
+  /**
+   * Intercept file changes before they are applied and either modify or skip them.
+   * Return the text changes which should be applied. Do not modify fileContent or diagnostic.
+   */
   preprocessCodeChanges?: (
     changes: ts.TextChange[],
     fileName: string,
@@ -15,12 +41,15 @@ export type TsAutoFixOptions = {
   ) => ts.TextChange[];
 };
 
-export const tsAutoFix = (options: TsAutoFixOptions) => {
+/**
+ * Automatically fix TS compiler errors using the built in TS codefixes.
+ * @param {TsAutoFixOptions} options
+ */
+export function tsAutoFix(options: TsAutoFixOptions) {
   const { program, host, formatContext } = createTsProject(
     options.tsconfigPath,
     options.compilerOptionsOverrides
   );
-
   const diagnosticsByFile = getDiagnosticsByFile(program);
 
   // Go through file by file
@@ -30,28 +59,29 @@ export const tsAutoFix = (options: TsAutoFixOptions) => {
       if (diagnostics.length === 0) continue;
     }
 
-    console.log(`Processing code fixes for ${fileName}`);
+    console.log(chalk.green(`Processing code fixes for ${fileName}`));
     const sourceFile = program.getSourceFile(fileName) as ts.SourceFile;
 
-    const changes: ts.TextChange[] = [];
+    const fileChanges: ts.TextChange[] = [];
+    const posWithFixes = new Set<number>();
     for (const diag of diagnostics) {
-      //console.log(`  ${diag.messageText} Pos ${diag.start}`);
+      if (diag.start && posWithFixes.has(diag.start)) {
+        logDiagAction(
+          "Skipping",
+          diag,
+          "because a fix is already being applied at this location.",
+          host
+        );
+        continue;
+      }
 
-      // Directly call into ts.codefix which is what the language service uses.
-      // Calling this directly is much faster as the language service reloads the whole
-      // project first, but we know it hasn't changed.
-      let fixActions = (ts as any).codefix.getFixes({
-        errorCode: diag.code,
-        sourceFile: sourceFile,
-        span: ts.createTextSpanFromBounds(
-          diag.start!,
-          diag.start! + diag.length!
-        ),
+      let fixActions = getCodeFixes(
+        diag,
+        sourceFile,
         program,
         host,
-        formatContext,
-        preferences: {},
-      }) as ts.CodeFixAction[];
+        formatContext
+      );
 
       if (options.codeFixFilter) {
         fixActions = fixActions.filter(options.codeFixFilter);
@@ -60,7 +90,9 @@ export const tsAutoFix = (options: TsAutoFixOptions) => {
       if (fixActions.length > 0) {
         if (fixActions.length > 1) {
           console.log(
-            `Found multiple matching actions at pos ${diag.start}. Only one will be applied.`
+            chalk.yellow(
+              `  Found multiple matching actions for error TS${diag.code} at pos ${diag.start}. Only one will be applied.`
+            )
           );
         }
 
@@ -69,25 +101,42 @@ export const tsAutoFix = (options: TsAutoFixOptions) => {
           let textChanges = [...c.textChanges];
           if (options.preprocessCodeChanges) {
             textChanges = options.preprocessCodeChanges(
-              changes,
+              textChanges,
               fileName,
               sourceFile.text,
               diag
             );
           }
-          changes.push(...textChanges);
+          if (textChanges && textChanges.length) {
+            logDiagAction(
+              "Fixing",
+              diag,
+              `using ${action.fixName}: ${action.description}`,
+              host
+            );
+            fileChanges.push(...textChanges);
+            if (diag.start) {
+              posWithFixes.add(diag.start);
+            }
+          }
         }
       }
     }
 
     // Apply fixes in descending order so we don't mess up positions for the next fixes.
-    changes.sort((a, b) => b.span.start - a.span.start);
+    fileChanges.sort((a, b) => b.span.start - a.span.start);
     let content = sourceFile.text;
     let lastChangeStartPos = content.length;
-    for (const change of changes) {
+    for (const change of fileChanges) {
       let { start, length } = change.span;
       if (start + length > lastChangeStartPos) {
-        console.log("Skipping overlapping change:", { start, length });
+        console.log(
+          chalk.yellow(
+            `  Skipping overlapping change at pos ${start}-${
+              start + length
+            }. Check code correctness manually and re-run if to apply skipped fixes.`
+          )
+        );
         continue;
       }
 
@@ -99,4 +148,4 @@ export const tsAutoFix = (options: TsAutoFixOptions) => {
     }
     fs.writeFileSync(fileName, content);
   }
-};
+}

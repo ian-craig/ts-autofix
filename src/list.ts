@@ -1,12 +1,32 @@
-import * as ts from "typescript";
-import { createTsProject, getDiagnosticsByFile } from "./utils";
+import type * as ts from "typescript";
+import columnify from "columnify";
+import { createTsProject, getCodeFixes, getDiagnosticsByFile } from "./tsUtils";
+import chalk from "chalk";
 
 export type TsListFixesOptions = {
   tsconfigPath: string;
   compilerOptionsOverrides?: ts.CompilerOptions;
 };
 
-export const listFixes = (options: TsListFixesOptions) => {
+type ListData = {
+  count: number;
+  message: string;
+  fixName: string;
+  errorCode: string;
+};
+
+const columnTitles = {
+  fixName: "Fix Name",
+  count: "Fix Count",
+  errorCode: "TS Error",
+  message: "Example Error Message",
+};
+
+/**
+ * Typecheck the project, find all available fixes, and log a summary to console.
+ * @param {TsListFixesOptions} options
+ */
+export function listFixes(options: TsListFixesOptions) {
   const { program, host, formatContext } = createTsProject(
     options.tsconfigPath,
     options.compilerOptionsOverrides
@@ -17,34 +37,41 @@ export const listFixes = (options: TsListFixesOptions) => {
   for (const [fileName, diagnostics] of diagnosticsByFile) {
     const sourceFile = program.getSourceFile(fileName) as ts.SourceFile;
 
-    const fixCounts = new Map<string, number>();
+    const fixCounts = new Map<string, ListData>();
 
     for (const diag of diagnostics) {
-      // Directly call into ts.codefix which is what the language service uses.
-      // Calling this directly is much faster as the language service reloads the whole
-      // project first, but we know it hasn't changed.
-      console.log("Getting fixes");
-      const fixActions = (ts as any).codefix.getFixes({
-        errorCode: diag.code,
-        sourceFile: sourceFile,
-        span: ts.createTextSpanFromBounds(
-          diag.start!,
-          diag.start! + diag.length!
-        ),
+      const fixActions = getCodeFixes(
+        diag,
+        sourceFile,
         program,
         host,
-        formatContext,
-        preferences: {},
-      }) as ts.CodeFixAction[];
+        formatContext
+      );
 
       for (const action of fixActions) {
-        const key = `${action.fixId} fixes TS${diag.code}`;
-        fixCounts.set(key, (fixCounts.get(key) ?? 0) + 1);
+        const key = `${action.fixId}:${diag.code}`;
+        if (fixCounts.has(key)) {
+          fixCounts.get(key)!.count += 1;
+        } else {
+          fixCounts.set(key, {
+            count: 1,
+            message: diag.messageText.toString(),
+            fixName: action.fixName,
+            errorCode: `TS${diag.code}`,
+          });
+        }
       }
     }
 
-    for (const [key, count] of fixCounts) {
-      console.log(`${key}: ${count} instances`);
-    }
+    console.log(
+      `\n` +
+        columnify(Array.from(fixCounts.values()), {
+          columns: ["fixName", "count", "errorCode", "message"],
+          columnSplitter: "   ",
+          headingTransform: (heading) => {
+            return chalk.green(columnTitles[heading as keyof ListData]);
+          },
+        })
+    );
   }
-};
+}
