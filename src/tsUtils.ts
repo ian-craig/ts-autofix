@@ -25,6 +25,9 @@ export function createTsProject(
     {},
     configHost
   )!;
+  if (!parsedCli) {
+    process.exit(1);
+  }
   if (parsedCli.errors.length > 0) {
     throw new Error(
       `Encountered TypeScript config errors: ${parsedCli.errors}`

@@ -9,7 +9,8 @@
       "noEmit": true,
     },
     "files": [
-      "./example.ts"
+      "./example.ts",
+      "./example2.ts"
     ]
   }
   

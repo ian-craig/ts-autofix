@@ -34,10 +34,14 @@ export function listFixes(options: TsListFixesOptions) {
 
   const diagnosticsByFile = getDiagnosticsByFile(program);
 
+  const fixInfo = new Map<string, ListData>();
+  let totalDiagCount = 0;
+  let totalFixCount = 0;
+
   for (const [fileName, diagnostics] of diagnosticsByFile) {
     const sourceFile = program.getSourceFile(fileName) as ts.SourceFile;
 
-    const fixCounts = new Map<string, ListData>();
+    totalDiagCount += diagnostics.length;
 
     for (const diag of diagnostics) {
       const fixActions = getCodeFixes(
@@ -48,12 +52,14 @@ export function listFixes(options: TsListFixesOptions) {
         formatContext
       );
 
+      totalFixCount += fixActions.length;
+
       for (const action of fixActions) {
-        const key = `${action.fixId}:${diag.code}`;
-        if (fixCounts.has(key)) {
-          fixCounts.get(key)!.count += 1;
+        const key = `${action.fixName}:${diag.code}`;
+        if (fixInfo.has(key)) {
+          fixInfo.get(key)!.count += 1;
         } else {
-          fixCounts.set(key, {
+          fixInfo.set(key, {
             count: 1,
             message: diag.messageText.toString(),
             fixName: action.fixName,
@@ -62,13 +68,19 @@ export function listFixes(options: TsListFixesOptions) {
         }
       }
     }
+  }
 
+  console.log(
+    `Found ${totalDiagCount} diagnostics and ${totalFixCount} possible fixes.`
+  );
+
+  if (totalFixCount > 0) {
     console.log(
       `\n` +
-        columnify(Array.from(fixCounts.values()), {
+        columnify(Array.from(fixInfo.values()), {
           columns: ["fixName", "count", "errorCode", "message"],
           columnSplitter: "   ",
-          headingTransform: (heading) => {
+          headingTransform: (heading: string) => {
             return chalk.green(columnTitles[heading as keyof ListData]);
           },
         })
