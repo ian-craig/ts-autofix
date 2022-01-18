@@ -1,6 +1,6 @@
 {
   "name": "ts-autofix",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automatically fix TS Errors when codefixes are available",
   "bin": "lib/cli.js",
   "main": "lib/index.js",
