@@ -5,19 +5,21 @@ import type * as ts from "typescript";
  * Load the caller's version of TypeScript, printing an error if none is found.
  */
 let tsInstance: typeof ts;
-function getTypeScript(): typeof ts {
+export function getTypeScript(): typeof ts {
   if (tsInstance) {
     return tsInstance;
   }
-  if (!require.resolve("typescript")) {
+  try {
+    tsInstance = require("typescript");
+  } catch {
     console.log(
       chalk.red(
-        "Failed to resolve 'typescript' peer dependency. If you are running from npx, run this command inside your package directory. You can also install typescript globally with `npm install -g typescript`."
+        "Failed to resolve 'typescript' peer dependency.\nIf you are running from npx, run this command inside your package directory. Alternatively, you can also install typescript globally with `npm install -g typescript`."
       )
     );
     process.exit(1);
   }
-  return require("typescript");
+  return tsInstance;
 }
 
 /**

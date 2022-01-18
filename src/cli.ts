@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { program, InvalidArgumentError } from "commander";
-import { tsAutoFix } from ".";
-import { listFixes } from "./list";
 import type * as ts from "typescript";
+import { tsAutoFix } from "./fix";
+import { listFixes } from "./list";
+import { getTypeScript } from "./tsUtils";
 
 program
   .version(require("../package.json").version)
@@ -15,7 +16,7 @@ program
     "--tsCliArgs <argsString>",
     "A string of additional CLI args to pass to tsc. e.g. to override a compiler option.",
     (value: string) => {
-      const result = require("typescript").parseCommandLine(value.split(/\s+/));
+      const result = getTypeScript().parseCommandLine(value.split(/\s+/));
       if (result.errors && result.errors.length > 0) {
         let errorMessage = "TypeScript failed to parse CLI args.\n";
         for (const err of result.errors) {

@@ -10,6 +10,7 @@ For most use cases you should be able to use `ts-autofix` directly through `npx`
 - `npx ts-autofix` will attempt to run all available fixes.
 
 If your tsconfig is not at `./tsconfig.json`, you should add arg `--project <pathToTsConfig>` to both commands.
+_Note that ts-autofix uses your version of TypeScript, so if you run outside a package with TypeScript installed you may need to install TypeScript globally._
 
 You can also filter which fixes are applied by using the `--fixes` or `--errors` args.
 
