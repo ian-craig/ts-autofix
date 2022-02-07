@@ -42,7 +42,7 @@ type TsAutoFixOptions = {
   compilerOptionsOverrides?: ts.CompilerOptions;
   diagnosticsFilter?: (diagnostic: ts.Diagnostic) => boolean;
   codeFixFilter?: (codeFixAction: ts.CodeFixAction) => boolean;
-  preprocessCodeChanges?: (changes: ts.TextChange[], fileName: string, fileContent: string, diagnostic: ts.Diagnostic) => ts.TextChange[];
+  preprocessCodeChanges?: (changes: ts.TextChange[], sourceFile: ts.SourceFile, diagnostic: ts.Diagnostic) => ts.TextChange[];
 };
 ```
 
@@ -52,7 +52,7 @@ type TsAutoFixOptions = {
 | compilerOptionsOverrides | Optional overrides to the compilerOptions in your tsconfig. |
 | diagnosticsFilter | An optional callback to filter which TypeScript diagnostics/errors to attempt to find fixes for. If not defined, all diagnostics are used. Return `true` to include that diagnostic. |
 | codeFixFilter | An optional callback to filter which fixes to apply. If not defined, all fixes are applied. Return `true` to include that fix. |
-| preprocessCodeChanges | An optional callback to modify fixes before they are applied. This can return modified `changes`, or skip individual changes, but cannot modify `fileContent` or `diagnostic` directly.  |
+| preprocessCodeChanges | An optional callback to modify fixes before they are applied. This can return modified `changes`, or skip individual changes, but cannot modify `sourceFile` or `diagnostic` directly.  |
 
 For exaple, you could use `preprocessCodeChanges` to modify the suggested replacements so that line comments are preserved when removing a variable.
 
@@ -62,15 +62,14 @@ import type * as ts from "typescript"
 
 const preprocessCodeChanges = (
   changes: ts.TextChange[],
-  fileName: string,
-  fileContent: string,
+  sourceFile: ts.SourceFile,
   diagnostic: ts.Diagnostic
 ): ts.TextChange[] => {
   for (const change of changes) {
     // If the change is purely a deletion
     if (!change.newText) {
       let { start, length } = change.span;
-      const removedText = fileContent.substring(start, start + length);
+      const removedText = sourceFile.text.substring(start, start + length);
 
       // Skip leading line comments when removing code.
       const match = removedText.match(/^(\s*\/\/.*\r?\n)+/);

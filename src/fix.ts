@@ -31,12 +31,11 @@ export type TsAutoFixOptions = {
 
   /**
    * Intercept file changes before they are applied and either modify or skip them.
-   * Return the text changes which should be applied. Do not modify fileContent or diagnostic.
+   * Return the text changes which should be applied. Do not modify sourceFile or diagnostic.
    */
   preprocessCodeChanges?: (
     changes: ts.TextChange[],
-    fileName: string,
-    fileContent: string,
+    sourceFile: ts.SourceFile,
     diagnostic: ts.Diagnostic
   ) => ts.TextChange[];
 };
@@ -102,8 +101,7 @@ export function tsAutoFix(options: TsAutoFixOptions) {
           if (options.preprocessCodeChanges) {
             textChanges = options.preprocessCodeChanges(
               textChanges,
-              fileName,
-              sourceFile.text,
+              sourceFile,
               diag
             );
           }
