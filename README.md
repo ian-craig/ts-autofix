@@ -1,4 +1,5 @@
 # TS AutoFix
+[![npm version](https://badge.fury.io/js/ts-autofix.svg)](https://badge.fury.io/js/ts-autofix)
 
 Automatically fix TS Errors when codefixes are available.
 
