@@ -33,6 +33,10 @@ export function listFixes(options: TsListFixesOptions) {
   );
 
   const diagnosticsByFile = getDiagnosticsByFile(program);
+  if (diagnosticsByFile.size === 0) {
+    console.log(`No errors found, nothing to fix.`);
+    return;
+  }
 
   const fixInfo = new Map<string, ListData>();
   let totalDiagCount = 0;

@@ -50,6 +50,10 @@ export function tsAutoFix(options: TsAutoFixOptions) {
     options.compilerOptionsOverrides
   );
   const diagnosticsByFile = getDiagnosticsByFile(program);
+  if (diagnosticsByFile.size === 0) {
+    console.log(`No errors found, nothing to fix.`);
+    return;
+  }
 
   // Go through file by file
   for (let [fileName, diagnostics] of diagnosticsByFile) {
