@@ -1,6 +1,6 @@
 {
   "name": "ts-autofix",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Automatically fix TS Errors when codefixes are available",
   "bin": "lib/cli.js",
   "main": "lib/index.js",
@@ -33,6 +33,6 @@
     "chalk": "^4.1.2",
     "columnify": "^1.5.4",
     "commander": "^8.3.0",
-    "typescript": "^4.5.4"
+    "typescript": "^4.8.3"
   }
 }
